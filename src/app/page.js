@@ -1,13 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import supabase from './lib/supabase';  // Import the updated Supabase client
 import ImageUpload from './components/ImageUpload';
 import ImageTile from './components/ImageTile';
-import Login from './pages/Login';
-
-const supabaseUrl = 'https://cbawuudpsscpblpbfzsi.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNiYXd1dWRwc3NjcGJscGJmenNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDY1OTE2MTksImV4cCI6MjAyMjE2NzYxOX0.81B_uqxRgjbWwDCZTmEq1521BdM8Mp5bgLl1RMBemvk';
-const supabase = createClient(supabaseUrl, supabaseKey);
+import InsightsPage from './pages/InsightsPage';
 
 const IndexPage = () => {
   const [imageTiles, setImageTiles] = useState([]);
@@ -18,6 +14,9 @@ const IndexPage = () => {
   const [user, setUser] = useState(null);
   const [tags, setTags] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [currentView, setCurrentView] = useState('bulk');
+  const itemsPerPage = 5;
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -26,7 +25,20 @@ const IndexPage = () => {
         console.error('Error fetching session:', error.message);
         return;
       }
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('profile_img')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Error fetching user profile image:', profileError.message);
+          return;
+        }
+
+        setUser({ ...session.user, profile_img: profile?.profile_img ?? null });
+      }
     };
     fetchSession();
   }, []);
@@ -67,6 +79,12 @@ const IndexPage = () => {
           description: tagItem.tag.description,
           tagTypeCode: tagItem.tag.tag_type_code,
         })),
+        reach: image.reach || 0,
+        collected: image.collected || 0,
+        linkClicks: image.link_clicks || 0,
+        profileViews: image.profile_views || 0,
+        follows: image.follows || 0,
+        topProfiles: image.top_profiles || []
       }));
       setImageTiles(userImages);
     } catch (error) {
@@ -93,7 +111,7 @@ const IndexPage = () => {
       const { data: groups, error } = await supabase
         .from('artist_group')
         .select('description')
-        .eq('user_id', user.id); // Filter by logged-in user's ID
+        .eq('user_id', user.id);
       if (error) {
         throw error;
       }
@@ -139,7 +157,7 @@ const IndexPage = () => {
         console.error('Error uploading image:', error.message);
       } else {
         console.log('Image uploaded successfully:', data.Key);
-        // You can save the image URL and other details to the database here
+        // Save image URL and details to the database here
       }
     }
     setUploading(false);
@@ -152,6 +170,13 @@ const IndexPage = () => {
     } else {
       setUser(null);
     }
+  };
+
+  const paginatedImageTiles = imageTiles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(imageTiles.length / itemsPerPage);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
   };
 
   if (!user) {
@@ -179,12 +204,37 @@ const IndexPage = () => {
         </div>
       </div>
     );
+  } else if (currentView === 'insights') {
+    return (
+      <InsightsPage
+        user={user}
+        handleLogout={handleLogout}
+        paginatedImageTiles={paginatedImageTiles}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        handlePageChange={handlePageChange}
+        setCurrentView={setCurrentView}
+        groups={groups}
+        setGroups={setGroups}
+      />
+    );
   } else {
     return (
       <div>
         <header>
           <h1>Artlet - Bulk Image Upload</h1>
+          <div className="profile-picture">
+            <img src={user.profile_img} alt="Profile" className="profile-img" />
+          </div>
         </header>
+        <div className="top-buttons">
+          <button onClick={() => setCurrentView('bulk')} className='view-btn'>
+            Bulk Upload
+          </button>
+          <button onClick={() => setCurrentView('insights')} className='view-btn'>
+            Insights
+          </button>
+        </div>
         <button className='logout-btn' onClick={handleLogout}>
           Logout
         </button>
@@ -193,13 +243,13 @@ const IndexPage = () => {
           <section id="imageTiles">
             <h2>Image Tiles</h2>
             <div id="tilesContainer">
-              {imageTiles.map((tile, index) => (
+              {paginatedImageTiles.map((tile, index) => (
                 <ImageTile
                   key={index}
                   imageUrl={tile.imageUrl}
                   title={tile.title}
                   storeUrl={tile.storeUrl}
-                  dimensions={tile.dimensions || { height: '', width: '', depth: '' }}
+                  dimensions={tile.dimensions}
                   dominantColors={tile.dominantColors}
                   multipleSizes={tile.multipleSizes}
                   tags={tile.tags}
@@ -208,10 +258,21 @@ const IndexPage = () => {
                 />
               ))}
             </div>
+            <button onClick={handleUpload} className='upload-btn'>
+              {uploading ? 'Uploading...' : 'Upload All'}
+            </button>
+            <div className="pagination-controls">
+              {Array.from({ length: totalPages }, (_, index) => (
+                <button
+                  key={index}
+                  className={index + 1 === currentPage ? 'active' : ''}
+                  onClick={() => handlePageChange(index + 1)}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
           </section>
-          <button onClick={handleUpload} disabled={imageTiles.length === 0 || uploading} className='upload-btn'>
-            {uploading ? 'Uploading...' : 'Upload to Artlet'}
-          </button>
         </main>
       </div>
     );
@@ -219,7 +280,3 @@ const IndexPage = () => {
 };
 
 export default IndexPage;
-
-
-
-

@@ -436,3 +436,252 @@ input:checked + .slider:before {
 .add-group button:hover {
   background-color: #6b5acd;
 }
+
+.login-container, .login-form {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.login-form form {
+  display: flex;
+  flex-direction: column;
+}
+
+.login-form input {
+  margin-bottom: 10px;
+  padding: 10px;
+  font-size: 16px;
+}
+
+.logout-btn, .view-btn {
+  margin: 10px;
+  padding: 10px;
+  background-color: #6200ea;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.pagination-controls button {
+  margin: 0 5px;
+  padding: 10px 15px;
+  border: none;
+  background-color: #f0f0f0;
+  cursor: pointer;
+}
+
+.pagination-controls button.active {
+  background-color: #6200ea;
+  color: white;
+}
+
+.top-buttons {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.top-buttons .view-btn {
+  margin: 0 5px;
+  padding: 10px;
+  background-color: #6200ea;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.top-buttons .view-btn:hover {
+  background-color: #6b5acd;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.pagination-controls button {
+  margin: 0 5px;
+  padding: 10px 15px;
+  border: none;
+  background-color: #f0f0f0;
+  cursor: pointer;
+}
+
+.pagination-controls button.active {
+  background-color: #6200ea;
+  color: white;
+}
+
+.profile-picture {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+}
+
+.profile-img {
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+}
+
+
+.insight-image {
+  width: 150px; /* Fixed width for the image */
+  height: 100px; /* Fixed height for the image */
+  object-fit: cover; /* Ensure the image covers the area without distortion */
+  border-radius: 8px; /* Optional: Add rounded corners */
+  margin-right: 20px; /* Space between image and details */
+}
+
+.insight-details {
+  flex: 1; /* Allow this section to take the remaining space */
+}
+
+.insight-details h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.insight-details p {
+  margin: 5px 0;
+}
+
+.insight-card .checkbox-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px; /* Space between checkboxes */
+}
+
+.checkbox-container label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.checkbox-container input {
+  margin-top: 5px;
+}
+
+.group-dropdown-container {
+  position: relative;
+}
+
+.insight-details {
+  margin-top: 10px;
+}
+
+.checkbox-container {
+  margin-top: 10px;
+}
+
+.dropdown-container {
+  margin-top: 10px;
+}
+
+.insight-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ccc;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.content-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.image-row {
+  flex: 1;
+  margin-right: 16px;
+}
+
+.insight-details {
+  flex: 2;
+  margin-right: 16px;
+}
+
+.checkbox-container {
+  flex: 1;
+  margin-right: 16px;
+}
+
+.dropdown-container {
+  flex: 1;
+}
+
+.stats-row {
+  display: flex;
+  flex-direction: column;
+  margin-top: 16px;
+}
+
+.stats-header, .stats-data {
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Vertically align items */
+  padding: 8px 0; /* Add some padding for better spacing */
+}
+
+.stats-header span, .stats-data span {
+  flex: 1;
+  text-align: center;
+}
+
+.stats-data {
+  text-align: center;
+}
+
+.profile-img-small {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin-left: 5px;
+}
+
+.top-profiles {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+
+
+
+
+/* Optional: Adjust layout for smaller screens */
+@media (max-width: 768px) {
+  .insight-card {
+    flex-direction: column; /* Stack elements vertically on smaller screens */
+    align-items: flex-start; /* Align items to the start */
+  }
+
+  .insight-image {
+    width: 100%; /* Make image responsive */
+    height: auto;
+    margin-bottom: 10px; /* Space between image and details */
+  }
+
+  .checkbox-container {
+    flex-direction: row; /* Align checkboxes horizontally */
+    margin-left: 0; /* Remove left margin */
+  }
+
+  .checkbox-container label {
+    margin-right: 10px; /* Space between checkboxes */
+  }
+}

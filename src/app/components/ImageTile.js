@@ -24,13 +24,14 @@ const ImageTile = ({
   const [multipleSizes, setMultipleSizes] = useState(initialMultipleSizes);
   const [dimensions, setDimensions] = useState(initialDimensions);
   const [tagSelections, setTagSelections] = useState(
-    availableTags.reduce((acc, tag) => {
+    (availableTags || []).reduce((acc, tag) => {
       if (!acc[tag.tag_type_code]) {
         acc[tag.tag_type_code] = "Please select from dropdown";
       }
       return acc;
     }, {})
   );
+  
   const [newGroupName, setNewGroupName] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const [dominantColors, setDominantColors] = useState(initialDominantColors || []);
