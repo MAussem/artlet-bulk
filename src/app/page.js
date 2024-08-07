@@ -4,6 +4,7 @@ import supabase from './lib/supabase';  // Import the updated Supabase client
 import ImageUpload from './components/ImageUpload';
 import ImageTile from './components/ImageTile';
 import InsightsPage from './pages/InsightsPage';
+import ColorThief from 'color-thief-browser';
 
 const IndexPage = () => {
   const [imageTiles, setImageTiles] = useState([]);
@@ -16,7 +17,8 @@ const IndexPage = () => {
   const [groups, setGroups] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentView, setCurrentView] = useState('bulk');
-  const itemsPerPage = 5;
+  const [searchQuery, setSearchQuery] = useState('');
+  const itemsPerPage = 12;
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -73,8 +75,12 @@ const IndexPage = () => {
         title: image.title || '',
         storeUrl: image.work_url || '',
         dimensions: image.dimensions || { height: '', width: '', depth: '' },
-        dominantColors: image.dominant_colors || [],
+        dominantColors: [
+          image.dc1, image.dc2, image.dc3, image.dc4, image.dc5, image.dc6
+        ].filter(Boolean),
         multipleSizes: image.multiple_dimensions || false,
+        price: image.price || 0,
+        multiplePrices: image.multiple_prices || false,
         tags: image.artist_work_tag.map(tagItem => ({
           description: tagItem.tag.description,
           tagTypeCode: tagItem.tag.tag_type_code,
@@ -110,7 +116,7 @@ const IndexPage = () => {
     try {
       const { data: groups, error } = await supabase
         .from('artist_group')
-        .select('description')
+        .select('group_name')
         .eq('user_id', user.id);
       if (error) {
         throw error;
@@ -134,34 +140,129 @@ const IndexPage = () => {
     }
   };
 
-  const handleFileSelect = (event) => {
+  const handleFileSelect = async (event) => {
     const files = event.target.files;
     const newTiles = [];
+    
+    console.log('Files selected:', files); // Debugging line
+  
     for (const file of files) {
       const reader = new FileReader();
-      reader.onload = function (e) {
-        newTiles.push({ imageUrl: e.target.result, file });
-        if (newTiles.length === files.length) {
-          setImageTiles([...imageTiles, ...newTiles]);
+      reader.onload = async function (e) {
+        console.log('File loaded:', e.target.result); // Debugging line
+  
+        const fileName = `${Date.now()}.png`;
+        const filePath = `gallery/${fileName}`;
+  
+        try {
+          const { data, error: uploadError } = await supabase.storage.from('content').upload(filePath, file);
+          if (uploadError) {
+            throw uploadError;
+          }
+  
+          const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/content/${filePath}`;
+          console.log('Image URL:', imageUrl); // Debugging line
+  
+          newTiles.push({
+            imageUrl,
+            file,
+            hasUnsavedChanges: true,
+            dominantColors: []
+          });
+  
+          if (newTiles.length === files.length) {
+            setImageTiles(prevTiles => [
+              ...newTiles,
+              ...prevTiles
+            ]);
+          }
+        } catch (error) {
+          console.error('Error uploading image:', error.message);
         }
       };
       reader.readAsDataURL(file);
     }
   };
-
-  const handleUpload = async () => {
-    setUploading(true);
-    for (const tile of imageTiles) {
-      const { data, error } = await supabase.storage.from('images').upload(tile.file.name, tile.file);
-      if (error) {
-        console.error('Error uploading image:', error.message);
-      } else {
-        console.log('Image uploaded successfully:', data.Key);
-        // Save image URL and details to the database here
-      }
-    }
-    setUploading(false);
+  
+  
+  const rgbToHex = (rgb) => {
+    const [r, g, b] = rgb;
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
   };
+
+//   const handleUpload = async () => {
+//   setUploading(true);
+//   for (const tile of imageTiles) {
+//     if (tile.file) { // Check if tile has a file to upload
+//       const filePath = `gallery/${tile.file.name}`; // Adjust path to include folder
+
+//       try {
+//         const { data, error } = await supabase.storage.from('content').upload(filePath, tile.file);
+//         if (error) {
+//           console.error('Error uploading image:', error.message);
+//           continue;
+//         }
+
+//         console.log('Image uploaded successfully:', data.Key);
+//         const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/content/${filePath}`;
+        
+//         // Extract dominant colors
+//         const img = new Image();
+//         img.src = URL.createObjectURL(tile.file);
+//         img.onload = () => {
+//           setTimeout(() => {
+//             try {
+//               const colorThief = new ColorThief();
+//               const colors = colorThief.getPalette(img, 6).map(rgbToHex);
+
+//               // Save image details to the database
+//               saveImageDetails({
+//                 imageUrl,
+//                 title: tile.title || '',
+//                 storeUrl: tile.storeUrl || '',
+//                 dominantColors: colors
+//               });
+//             } catch (colorThiefError) {
+//               console.error('Error extracting colors with ColorThief:', colorThiefError);
+//             }
+//           }, 500); // Adjust delay if needed
+//         };
+//       } catch (uploadError) {
+//         console.error('Unexpected error during upload:', uploadError.message);
+//       }
+//     }
+//   }
+//   setUploading(false);
+// };
+
+// const saveImageDetails = async ({ imageUrl, title, storeUrl, dominantColors }) => {
+//   const [dc1, dc2, dc3, dc4, dc5, dc6] = Array.isArray(dominantColors) ? dominantColors : [];
+
+//   try {
+//     const { error } = await supabase
+//       .from('artist_work')
+//       .insert({
+//         image_url: imageUrl,
+//         title,
+//         work_url: storeUrl,
+//         dc1,
+//         dc2,
+//         dc3,
+//         dc4,
+//         dc5,
+//         dc6,
+//       });
+
+//     if (error) {
+//       throw error;
+//     }
+
+//     console.log('Image details saved successfully.');
+//   } catch (error) {
+//     console.error('Error saving image details:', error.message);
+//   }
+// };
+
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -172,11 +273,28 @@ const IndexPage = () => {
     }
   };
 
-  const paginatedImageTiles = imageTiles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPages = Math.ceil(imageTiles.length / itemsPerPage);
+  const filteredImageTiles = imageTiles.filter(tile => {
+    const title = tile.title || ''; // Default to an empty string if tile.title is undefined
+    return title.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  const paginatedImageTiles = filteredImageTiles.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+  const totalPages = Math.ceil(filteredImageTiles.length / itemsPerPage);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
+  };
+
+  const handleImageUpdate = (id, updatedDetails) => {
+    setImageTiles(prevTiles => {
+      const newTiles = prevTiles.map(tile =>
+        tile.id === id ? { ...tile, ...updatedDetails } : tile  // Use id to find the tile
+      );
+      return newTiles;
+    });
   };
 
   if (!user) {
@@ -209,6 +327,7 @@ const IndexPage = () => {
       <InsightsPage
         user={user}
         handleLogout={handleLogout}
+        filteredImageTiles={filteredImageTiles}
         paginatedImageTiles={paginatedImageTiles}
         currentPage={currentPage}
         totalPages={totalPages}
@@ -216,6 +335,8 @@ const IndexPage = () => {
         setCurrentView={setCurrentView}
         groups={groups}
         setGroups={setGroups}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
       />
     );
   } else {
@@ -227,6 +348,14 @@ const IndexPage = () => {
             <img src={user.profile_img} alt="Profile" className="profile-img" />
           </div>
         </header>
+        <div className="search-bar">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by title"
+          />
+        </div>
         <div className="top-buttons">
           <button onClick={() => setCurrentView('bulk')} className='view-btn'>
             Bulk Upload
@@ -234,6 +363,17 @@ const IndexPage = () => {
           <button onClick={() => setCurrentView('insights')} className='view-btn'>
             Insights
           </button>
+        </div>
+        <div className="pagination-controls">
+          {Array.from({ length: totalPages }, (_, index) => (
+            <button
+              key={index}
+              className={index + 1 === currentPage ? 'active' : ''}
+              onClick={() => handlePageChange(index + 1)}
+            >
+              {index + 1}
+            </button>
+          ))}
         </div>
         <button className='logout-btn' onClick={handleLogout}>
           Logout
@@ -245,22 +385,27 @@ const IndexPage = () => {
             <div id="tilesContainer">
               {paginatedImageTiles.map((tile, index) => (
                 <ImageTile
-                  key={index}
+                  key={tile.id}
                   imageUrl={tile.imageUrl}
                   title={tile.title}
                   storeUrl={tile.storeUrl}
                   dimensions={tile.dimensions}
                   dominantColors={tile.dominantColors}
                   multipleSizes={tile.multipleSizes}
+                  price={tile.price}
+                  multiplePrices={tile.multiplePrices}
                   tags={tile.tags}
                   availableTags={tags}
                   groups={groups}
+                  onUpdate={(updatedDetails) => handleImageUpdate(index, updatedDetails)}
+                  hasUnsavedChanges={tile.hasUnsavedChanges}
+                  user={user}
                 />
               ))}
             </div>
-            <button onClick={handleUpload} className='upload-btn'>
+            {/* <button onClick={handleUpload} className='upload-btn'>
               {uploading ? 'Uploading...' : 'Upload All'}
-            </button>
+            </button> */}
             <div className="pagination-controls">
               {Array.from({ length: totalPages }, (_, index) => (
                 <button

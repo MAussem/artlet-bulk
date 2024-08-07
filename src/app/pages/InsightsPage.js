@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import supabase from '../lib/supabase';
 
-const InsightsPage = ({ user, handleLogout, paginatedImageTiles, currentPage, totalPages, handlePageChange, setCurrentView, groups, setGroups }) => {
+const InsightsPage = ({ user, handleLogout, filteredImageTiles, paginatedImageTiles, currentPage, totalPages, handlePageChange, setCurrentView, groups, setGroups, searchQuery, setSearchQuery }) => {
   const [selectedGroup, setSelectedGroup] = useState({});
   const [newGroupName, setNewGroupName] = useState('');
   const [randomProfiles, setRandomProfiles] = useState([]);
@@ -22,7 +22,7 @@ const InsightsPage = ({ user, handleLogout, paginatedImageTiles, currentPage, to
       if (error) {
         throw error;
       }
-      console.log('Fetched groups:', groups);
+      // console.log('Fetched groups:', groups);
       setGroups(groups);
     } catch (error) {
       console.error('Error fetching groups:', error.message);
@@ -78,6 +78,14 @@ const InsightsPage = ({ user, handleLogout, paginatedImageTiles, currentPage, to
           <img src={user.profile_img} alt="Profile" className="profile-img" />
         </div>
       </header>
+      <div className="search-bar">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by title"
+          />
+        </div>
       <div className="top-buttons">
         <button onClick={() => setCurrentView('bulk')} className='view-btn'>
           Bulk Upload
@@ -86,6 +94,17 @@ const InsightsPage = ({ user, handleLogout, paginatedImageTiles, currentPage, to
           Insights
         </button>
       </div>
+      <div className="pagination-controls">
+            {Array.from({ length: totalPages }, (_, index) => (
+              <button
+                key={index}
+                className={index + 1 === currentPage ? 'active' : ''}
+                onClick={() => handlePageChange(index + 1)}
+              >
+                {index + 1}
+              </button>
+            ))}
+          </div>
       <button className='logout-btn' onClick={handleLogout}>
         Logout
       </button>

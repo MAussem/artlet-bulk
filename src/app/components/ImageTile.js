@@ -1,64 +1,134 @@
-// components/ImageTile.js
 import React, { useState, useEffect, useRef } from 'react';
+import Modal from 'react-modal';
 import ColorThief from 'color-thief-browser';
+import supabase from '../lib/supabase';
 
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = 'https://cbawuudpsscpblpbfzsi.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNiYXd1dWRwc3NjcGJscGJmenNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDY1OTE2MTksImV4cCI6MjAyMjE2NzYxOX0.81B_uqxRgjbWwDCZTmEq1521BdM8Mp5bgLl1RMBemvk';
-const supabase = createClient(supabaseUrl, supabaseKey);
+Modal.setAppElement('#__next'); // Ensure this matches your app's root element
 
 const ImageTile = ({
   imageUrl,
-  title: initialTitle,
-  storeUrl: initialStoreUrl,
-  dimensions: initialDimensions,
-  dominantColors: initialDominantColors,
-  multipleSizes: initialMultipleSizes,
+  title: initialTitle = '',
+  storeUrl: initialStoreUrl = '',
+  dimensions: initialDimensions = { height: '', width: '', depth: '' },
+  dominantColors: initialDominantColors = [],
+  multipleSizes: initialMultipleSizes = false,
+  price: initialPrice = 0,
+  multiplePrices: initialMultiplePrices = false,
   tags,
   availableTags,
-  groups
+  groups,
+  onUpdate,
+  hasUnsavedChanges,
+  user
 }) => {
+
+  const defaultTagSelections = {
+    Medium: "Please select from dropdown",
+    Movement: "Please select from dropdown",
+    Region: "Please select from dropdown",
+    Subject: "Please select from dropdown",
+    Theme: "Please select from dropdown"
+  };
+
   const [title, setTitle] = useState(initialTitle);
   const [storeUrl, setStoreUrl] = useState(initialStoreUrl);
   const [multipleSizes, setMultipleSizes] = useState(initialMultipleSizes);
+  const [price, setPrice] = useState(initialPrice);
+  const [multiplePrices, setMultiplePrices] = useState(initialMultiplePrices);
   const [dimensions, setDimensions] = useState(initialDimensions);
   const [tagSelections, setTagSelections] = useState(
-    (availableTags || []).reduce((acc, tag) => {
-      if (!acc[tag.tag_type_code]) {
-        acc[tag.tag_type_code] = "Please select from dropdown";
-      }
+    (tags || []).reduce((acc, tag) => {
+      acc[tag.tagTypeCode] = tag.description;
       return acc;
-    }, {})
+    }, defaultTagSelections)
   );
-  
   const [newGroupName, setNewGroupName] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const [dominantColors, setDominantColors] = useState(initialDominantColors || []);
-  const imageRef = useRef();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalWidth, setModalWidth] = useState('auto');
+  const [modalHeight, setModalHeight] = useState('auto');
+  const [conditionalPrice, setConditionalPrice] = useState('');
+  const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const [errors, setErrors] = useState({ title: '', storeUrl: '' });
+  
+  const isTitleEmpty = title.trim() === '';
+  const isStoreUrlEmpty = storeUrl.trim() === '';
+
+  const imageRef = useRef(null);
 
   useEffect(() => {
-    if (imageUrl) {
-      const img = imageRef.current;
+    setTitle(initialTitle);
+    setStoreUrl(initialStoreUrl);
+    setMultipleSizes(initialMultipleSizes);
+    setPrice(initialPrice);
+    setMultiplePrices(initialMultiplePrices);
+    setDimensions(initialDimensions);
+    setTagSelections(
+      (tags || []).reduce((acc, tag) => {
+        acc[tag.tagTypeCode] = tag.description;
+        return acc;
+      }, defaultTagSelections)
+    );
+    setDominantColors(initialDominantColors || []);
+  
+    const img = imageRef.current;
+    if (img) {
       img.crossOrigin = "Anonymous";
       img.onload = () => {
-        const colorThief = new ColorThief();
-        const colors = colorThief.getPalette(img, 5);
-        setDominantColors(colors.map(color => `rgb(${color[0]}, ${color[1]}, ${color[2]})`));
+        setTimeout(() => {
+          try {
+            const colorThief = new ColorThief();
+            const colors = colorThief.getPalette(img, 6);
+            setDominantColors(colors.map(color => `rgb(${color[0]}, ${color[1]}, ${color[2]})`));
+          } catch (colorThiefError) {
+            console.error("Error extracting colors with ColorThief:", colorThiefError);
+          }
+        }, 500); // Adjust delay if needed
       };
+      img.onerror = (error) => {
+        console.error("Image failed to load:", error);
+      };
+      img.src = imageUrl;
     }
+  
+    return () => {
+      if (imageRef.current) {
+        imageRef.current.onload = null;
+        imageRef.current.onerror = null;
+      }
+    };
   }, [imageUrl]);
+  
+  useEffect(() => {
+    if (isModalOpen && imageRef.current) {
+      const img = imageRef.current;
+      const { width, height } = img.getBoundingClientRect();
+      setModalWidth(width + 40);
+      setModalHeight(height + 40);
+    }
+  }, [isModalOpen, imageUrl]);
 
   const handleTitleChange = (event) => {
     setTitle(event.target.value);
+    setUnsavedChanges(true);
+    setErrors(prevErrors => ({ ...prevErrors, title: event.target.value.trim() === '' ? 'Title is required.' : '' }));
   };
 
   const handleStoreUrlChange = (event) => {
     setStoreUrl(event.target.value);
+    setUnsavedChanges(true);
+    setErrors(prevErrors => ({ ...prevErrors, storeUrl: event.target.value.trim() === '' ? 'Store URL is required.' : '' }));
   };
 
   const toggleMultipleSizes = () => {
     setMultipleSizes(!multipleSizes);
+    setUnsavedChanges(true);
+  };
+
+  const toggleMultiplePrices = () => {
+    setMultiplePrices(!multiplePrices);
+    setUnsavedChanges(true);
   };
 
   const handleDimensionChange = (dimension, event) => {
@@ -66,6 +136,7 @@ const ImageTile = ({
       ...prevDimensions,
       [dimension]: event.target.value,
     }));
+    setUnsavedChanges(true);
   };
 
   const handleTagChange = (tagTypeCode, event) => {
@@ -74,11 +145,136 @@ const ImageTile = ({
       ...prevSelections,
       [tagTypeCode]: newDescription,
     }));
+    setUnsavedChanges(true);
   };
 
   const handleNewGroupNameChange = (event) => {
     setNewGroupName(event.target.value);
+    setUnsavedChanges(true);
   };
+  
+  const handleImageUpload = async () => {
+    if (!validateFields()) {
+      // If validation fails, stop the upload process
+      return;
+    }
+  
+    if (!imageUrl) {
+      console.error("No image URL provided for upload");
+      return;
+    }
+  
+    try {
+      // Fetch the full-size image
+      const imageBlob = await fetch(imageUrl).then(res => res.blob());
+  
+      // Resize the image to 100px width
+      const img = new Image();
+      img.src = URL.createObjectURL(imageBlob);
+      await new Promise((resolve) => img.onload = resolve);
+  
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const width = 100;
+      const height = (img.height / img.width) * width;
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+  
+      // Convert resized image to blob
+      const resizedBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      const resizedFileName = `${Date.now()}_100.png`;
+  
+      // Upload resized image to Supabase
+      const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from('content/gallery')
+        .upload(resizedFileName, resizedBlob, {
+          cacheControl: '3600',
+          upsert: true
+        });
+  
+      if (uploadError) throw uploadError;
+  
+      // Update image attributes in your database
+      const { data: imageData, error: updateError } = await supabase
+        .from('artist_work')
+        .upsert({
+          title,
+          work_url: storeUrl,
+          dimensions: {
+            height: img.height,
+            width: img.width,
+            depth: dimensions.depth // Ensure depth is provided
+          },
+          image_url: imageUrl, // Full-size image URL
+          multiple_dimensions: multipleSizes, // Adjust as needed
+          dc1: dominantColors[0] || null,
+          dc2: dominantColors[1] || null,
+          dc3: dominantColors[2] || null,
+          dc4: dominantColors[3] || null,
+          dc5: dominantColors[4] || null,
+          dc6: dominantColors[5] || null,
+          price,
+          multiple_prices: multiplePrices,
+          artist_id: user.id
+        })
+        .single();
+  
+      if (updateError) throw updateError;
+  
+      // Get the inserted/updated image ID
+      const imageId = imageData.id;
+  
+      // Insert tags into artist_work_tag table
+      const tagEntries = Object.keys(tagSelections).map(tagTypeCode => {
+        const tagDescription = tagSelections[tagTypeCode];
+        const tag = availableTags.find(t => t.description === tagDescription);
+        if (tag) {
+          return {
+            artist_work_id: imageId,
+            tag_id: tag.id
+          };
+        }
+        return null;
+      }).filter(entry => entry !== null);
+  
+      if (tagEntries.length > 0) {
+        const { error: tagInsertError } = await supabase
+          .from('artist_work_tag')
+          .insert(tagEntries);
+  
+        if (tagInsertError) {
+          console.error('Error inserting tags:', tagInsertError.message);
+        }
+      }
+  
+      alert('Image uploaded successfully!');
+    } catch (error) {
+      console.error('Error uploading image:', error.message);
+    }
+  };
+  
+  
+
+  const validateFields = () => {
+    const newErrors = { title: '', storeUrl: '' };
+    let isValid = true;
+  
+    if (!title) {
+      newErrors.title = 'Title is required.';
+      isValid = false;
+    }
+  
+    if (!storeUrl) {
+      newErrors.storeUrl = 'Store URL is required.';
+      isValid = false;
+    }
+  
+    setErrors(newErrors);
+    return isValid;
+  };
+  
 
   const addNewGroup = async () => {
     try {
@@ -89,7 +285,6 @@ const ImageTile = ({
         console.error('Error adding group:', error.message);
       } else {
         console.log('Group added successfully:', data);
-        await fetchGroups();
       }
     } catch (error) {
       console.error('Error adding group:', error.message);
@@ -98,7 +293,7 @@ const ImageTile = ({
   };
 
   const getTagDescriptions = (tagTypeCode) => {
-    if (!availableTags) return ["Please select from dropdown"];
+    if (!availableTags || availableTags.length === 0) return ["Please select from dropdown"];
     return ["Please select from dropdown", ...availableTags
       .filter(tag => tag.tag_type_code === tagTypeCode)
       .map(tag => tag.description)];
@@ -108,9 +303,58 @@ const ImageTile = ({
     setShowMenu(!showMenu);
   };
 
+  const openModal = () => {
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setModalWidth('auto');
+    setModalHeight('auto');
+  };
+
+  useEffect(() => {
+    if (onUpdate) {
+      onUpdate({
+        title,
+        storeUrl,
+        dimensions,
+        dominantColors,
+        multipleSizes,
+        price,
+        multiplePrices,
+        tagSelections
+      });
+    }
+  }, [title, storeUrl, dimensions, dominantColors, multipleSizes, price, multiplePrices, tagSelections]);
+
   return (
-    <div className="tile">
-      <img src={imageUrl} alt="Uploaded Image" ref={imageRef} />
+    <div className="tile" style={{ backgroundColor: unsavedChanges ? '#85815f' : '#333' }}>
+      <img
+        src={imageUrl}
+        alt="Uploaded Image"
+        ref={imageRef}
+        onClick={openModal}
+        style={{ cursor: 'pointer' }}
+      />
+      <Modal
+        isOpen={isModalOpen}
+        onRequestClose={closeModal}
+        contentLabel="Image Modal"
+        className="modal"
+        overlayClassName="overlay"
+      >
+        <img src={imageUrl} alt="Full Size Image" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+      </Modal>
+      {unsavedChanges && (
+  <button
+    onClick={handleImageUpload}
+    disabled={!title.trim() || !storeUrl.trim()} // Use trim() to ignore whitespace
+    className="upload-button"
+  >
+    Save
+  </button>
+)}
       <div className="dominant-colors">
         <h3>Dominant Colours</h3>
         <div className="color-squares">
@@ -127,18 +371,26 @@ const ImageTile = ({
       <input
         type="text"
         value={title}
-        className='input-field'
+        className={`input-field ${isTitleEmpty ? 'error' : ''}`}
         onChange={handleTitleChange}
         placeholder="Add the Title of Your Work"
       />
+      {isTitleEmpty && (
+        <p className="error-message">Title is mandatory</p>
+      )}
+      
       <label className='label'>Store URL:</label>
       <input
         type="text"
         value={storeUrl}
-        className='input-field'
+        className={`input-field ${isStoreUrlEmpty ? 'error' : ''}`}
         onChange={handleStoreUrlChange}
         placeholder="Add Your Store URL"
       />
+      {isStoreUrlEmpty && (
+          <p className="error-message">Store URL is mandatory</p>
+        )}
+
       <div className="toggle-multiple-sizes">
         <label className="switch">
           <input type="checkbox" checked={multipleSizes} onChange={toggleMultipleSizes} />
@@ -146,6 +398,25 @@ const ImageTile = ({
         </label>
         <span className="toggle-label">This work comes in multiple sizes</span>
       </div>
+      <div className="toggle-multiple-prices">
+        <label className="switch">
+          <input type="checkbox" checked={multiplePrices} onChange={toggleMultiplePrices} />
+          <span className="slider round"></span>
+        </label>
+        <span className="toggle-label">This work comes in multiple prices</span>
+      </div>
+      {!multiplePrices && (
+        <div className="conditional-price">
+          <label className='label'>Price:</label>
+          <input
+            type="text"
+            value={price}
+            onChange={(e) => setConditionalPrice(e.target.value)}
+            className='input-field'
+            placeholder="Enter the price"
+          />
+        </div>
+      )}
       <div className="dimensions">
         <label>
           Height (inches):
@@ -182,9 +453,9 @@ const ImageTile = ({
         </label>
       </div>
       <div className="tags">
-        <h4>Tags:</h4>
+        <label className='label'>Tags</label>
         <div className="tags-container">
-          {Object.keys(tagSelections).map((tagTypeCode, index) => (
+          {Object.keys(defaultTagSelections).map((tagTypeCode, index) => (
             <div key={index} className="tag-item">
               <label className='label'>{tagTypeCode}:</label>
               <select
