@@ -13,6 +13,7 @@ const IndexPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
+  const [artistId, setArtistId] = useState(null); // added this state to store the artist ID for the selected image
   const [tags, setTags] = useState([]);
   const [groups, setGroups] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -90,7 +91,8 @@ const IndexPage = () => {
         linkClicks: image.link_clicks || 0,
         profileViews: image.profile_views || 0,
         follows: image.follows || 0,
-        topProfiles: image.top_profiles || []
+        topProfiles: image.top_profiles || [],
+        artistId: image.artist_id
       }));
       setImageTiles(userImages);
     } catch (error) {
@@ -143,7 +145,7 @@ const IndexPage = () => {
   const handleFileSelect = async (event) => {
     const files = event.target.files;
     const newTiles = [];
-    
+  
     console.log('Files selected:', files); // Debugging line
   
     for (const file of files) {
@@ -170,6 +172,7 @@ const IndexPage = () => {
             dominantColors: []
           });
   
+          // Update state only once all files are processed
           if (newTiles.length === files.length) {
             setImageTiles(prevTiles => [
               ...newTiles,
@@ -400,6 +403,7 @@ const IndexPage = () => {
                   onUpdate={(updatedDetails) => handleImageUpdate(index, updatedDetails)}
                   hasUnsavedChanges={tile.hasUnsavedChanges}
                   user={user}
+                  artistId={tile.artistId}
                 />
               ))}
             </div>

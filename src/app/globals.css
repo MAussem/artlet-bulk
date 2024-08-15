@@ -213,7 +213,7 @@ h1, h2 {
 }
 
 .error-message {
-  color: #ff4c4c;
+  color: #ffbcbc;
   margin-top: 10px;
 }
 
@@ -307,7 +307,7 @@ input:checked + .slider:before {
 }
 
 .dimensions {
-  margin-top: 30px;
+  margin: 20px 0 20px 0;
   display: flex;
   flex-direction: row;
   align-items: center;

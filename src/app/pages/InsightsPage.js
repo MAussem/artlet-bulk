@@ -137,11 +137,11 @@ const InsightsPage = ({ user, handleLogout, filteredImageTiles, paginatedImageTi
                     <select value={selectedGroup[index] || ''} onChange={(e) => handleGroupChange(e, index)}>
                       <option value="">Select Group</option>
                       {groups.map((group) => (
-                        <option key={group.id} value={group.description}>
-                          {group.description}
+                        <option key={group.id} value={group.group_name}>
+                          {group.group_name}
                         </option>
                       ))}
-                      <option value="create">Create New Group</option>
+                      {/* <option value="create">Create New Group</option> */}
                     </select>
                     {selectedGroup[index] === 'create' && (
                       <div className="new-group-container">

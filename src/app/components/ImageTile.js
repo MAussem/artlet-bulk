@@ -3,7 +3,7 @@ import Modal from 'react-modal';
 import ColorThief from 'color-thief-browser';
 import supabase from '../lib/supabase';
 
-Modal.setAppElement('#__next'); // Ensure this matches your app's root element
+Modal.setAppElement('#__next');
 
 const ImageTile = ({
   imageUrl,
@@ -19,6 +19,7 @@ const ImageTile = ({
   groups,
   onUpdate,
   hasUnsavedChanges,
+  artistId,
   user
 }) => {
 
@@ -58,6 +59,7 @@ const ImageTile = ({
   const imageRef = useRef(null);
 
   useEffect(() => {
+    console.log("artist_id:", artistId);
     setTitle(initialTitle);
     setStoreUrl(initialStoreUrl);
     setMultipleSizes(initialMultipleSizes);
@@ -205,7 +207,7 @@ const ImageTile = ({
           dimensions: {
             height: img.height,
             width: img.width,
-            depth: dimensions.depth // Ensure depth is provided
+            depth: dimensions.depth 
           },
           image_url: imageUrl, // Full-size image URL
           multiple_dimensions: multipleSizes, // Adjust as needed
@@ -217,39 +219,44 @@ const ImageTile = ({
           dc6: dominantColors[5] || null,
           price,
           multiple_prices: multiplePrices,
-          artist_id: user.id
+          artist_id: artistId
         })
         .single();
-  
-      if (updateError) throw updateError;
-  
-      // Get the inserted/updated image ID
-      const imageId = imageData.id;
-  
-      // Insert tags into artist_work_tag table
-      const tagEntries = Object.keys(tagSelections).map(tagTypeCode => {
-        const tagDescription = tagSelections[tagTypeCode];
-        const tag = availableTags.find(t => t.description === tagDescription);
-        if (tag) {
-          return {
-            artist_work_id: imageId,
-            tag_id: tag.id
-          };
+        console.log('artistIdLate:', artistId);
+        if (updateError) {
+          console.error('Error updating image:', updateError.message);
+          return; // Exit early if there was an error
         }
-        return null;
-      }).filter(entry => entry !== null);
   
-      if (tagEntries.length > 0) {
-        const { error: tagInsertError } = await supabase
-          .from('artist_work_tag')
-          .insert(tagEntries);
   
-        if (tagInsertError) {
-          console.error('Error inserting tags:', tagInsertError.message);
-        }
-      }
+      // // Get the inserted/updated image ID
+      // const imageId = imageData.id;
+  
+      // // Insert tags into artist_work_tag table
+      // const tagEntries = Object.keys(tagSelections).map(tagTypeCode => {
+      //   const tagDescription = tagSelections[tagTypeCode];
+      //   const tag = availableTags.find(t => t.description === tagDescription);
+      //   if (tag) {
+      //     return {
+      //       artist_work_id: imageId,
+      //       tag_id: tag
+      //     };
+      //   }
+      //   return null;
+      // }).filter(entry => entry !== null);
+  
+      // if (tagEntries.length > 0) {
+      //   const { error: tagInsertError } = await supabase
+      //     .from('artist_work_tag')
+      //     .insert(tagEntries);
+  
+      //   if (tagInsertError) {
+      //     console.error('Error inserting tags:', tagInsertError.message);
+      //   }
+      // }
   
       alert('Image uploaded successfully!');
+      setUnsavedChanges(false);
     } catch (error) {
       console.error('Error uploading image:', error.message);
     }
@@ -327,6 +334,7 @@ const ImageTile = ({
       });
     }
   }, [title, storeUrl, dimensions, dominantColors, multipleSizes, price, multiplePrices, tagSelections]);
+  
 
   return (
     <div className="tile" style={{ backgroundColor: unsavedChanges ? '#85815f' : '#333' }}>
@@ -398,6 +406,43 @@ const ImageTile = ({
         </label>
         <span className="toggle-label">This work comes in multiple sizes</span>
       </div>
+      {!multipleSizes && (
+      <div className="dimensions">
+        <label>
+          Height
+          <input
+            type="text"
+            value={dimensions.height}
+            className='input-field'
+            onChange={(e) => handleDimensionChange('height', e)}
+            placeholder="inches"
+            required
+          />
+        </label>
+        <label>
+          Width
+          <input
+            type="text"
+            value={dimensions.width}
+            className='input-field'
+            onChange={(e) => handleDimensionChange('width', e)}
+            placeholder="inches"
+            required
+          />
+        </label>
+        <label>
+          Depth
+          <input
+            type="text"
+            value={dimensions.depth}
+            className='input-field'
+            onChange={(e) => handleDimensionChange('depth', e)}
+            placeholder="inches"
+            required
+          />
+        </label>
+      </div>
+      )}
       <div className="toggle-multiple-prices">
         <label className="switch">
           <input type="checkbox" checked={multiplePrices} onChange={toggleMultiplePrices} />
@@ -411,47 +456,12 @@ const ImageTile = ({
           <input
             type="text"
             value={price}
-            onChange={(e) => setConditionalPrice(e.target.value)}
+            onChange={(e) => setPrice(e.target.value)}
             className='input-field'
             placeholder="Enter the price"
           />
         </div>
       )}
-      <div className="dimensions">
-        <label>
-          Height (inches):
-          <input
-            type="text"
-            value={dimensions.height}
-            className='input-field'
-            onChange={(e) => handleDimensionChange('height', e)}
-            placeholder="Height"
-            required
-          />
-        </label>
-        <label>
-          Width (inches):
-          <input
-            type="text"
-            value={dimensions.width}
-            className='input-field'
-            onChange={(e) => handleDimensionChange('width', e)}
-            placeholder="Width"
-            required
-          />
-        </label>
-        <label>
-          Depth (inches):
-          <input
-            type="text"
-            value={dimensions.depth}
-            className='input-field'
-            onChange={(e) => handleDimensionChange('depth', e)}
-            placeholder="Depth"
-            required
-          />
-        </label>
-      </div>
       <div className="tags">
         <label className='label'>Tags</label>
         <div className="tags-container">
@@ -483,7 +493,7 @@ const ImageTile = ({
           <div className="menu-dropdown">
             <ul>
               {groups.map((group, index) => (
-                <li key={index}>{group.description}</li>
+                <li key={index}>{group.group_name}</li>
               ))}
             </ul>
             <div className="add-group">
