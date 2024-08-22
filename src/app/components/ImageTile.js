@@ -149,6 +149,11 @@ const ImageTile = ({
     setUnsavedChanges(true);
   };
 
+  const handlePriceChange = (event) => {
+    setPrice(event.target.value);
+    setUnsavedChanges(true);
+  };
+
   const handleDimensionChange = (dimension, event) => {
     setDimensions((prevDimensions) => ({
       ...prevDimensions,
@@ -570,7 +575,7 @@ const ImageTile = ({
           <input
             type="text"
             value={price}
-            onChange={(e) => setPrice(e.target.value)}
+            onChange={(e) => handlePriceChange(e)}
             className="input-field"
             placeholder="Enter the price"
           />
