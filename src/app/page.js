@@ -72,6 +72,7 @@ const IndexPage = () => {
         throw error;
       }
       const userImages = images.map(image => ({
+        id: image.id,
         imageUrl: image.image_url,
         title: image.title || '',
         storeUrl: image.work_url || '',
@@ -150,42 +151,29 @@ const IndexPage = () => {
   
     for (const file of files) {
       const reader = new FileReader();
-      reader.onload = async function (e) {
+      reader.onload = function (e) {
         console.log('File loaded:', e.target.result); // Debugging line
   
-        const fileName = `${Date.now()}.png`;
-        const filePath = `gallery/${fileName}`;
+        newTiles.push({
+          imageUrl: e.target.result, // The data URL of the file
+          file,
+          hasUnsavedChanges: true,
+          dominantColors: [],
+          artistId: user.id
+        });
   
-        try {
-          const { data, error: uploadError } = await supabase.storage.from('content').upload(filePath, file);
-          if (uploadError) {
-            throw uploadError;
-          }
-  
-          const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/content/${filePath}`;
-          console.log('Image URL:', imageUrl); // Debugging line
-  
-          newTiles.push({
-            imageUrl,
-            file,
-            hasUnsavedChanges: true,
-            dominantColors: []
-          });
-  
-          // Update state only once all files are processed
-          if (newTiles.length === files.length) {
-            setImageTiles(prevTiles => [
-              ...newTiles,
-              ...prevTiles
-            ]);
-          }
-        } catch (error) {
-          console.error('Error uploading image:', error.message);
+        // Update state once all files are processed
+        if (newTiles.length === files.length) {
+          setImageTiles(prevTiles => [
+            ...newTiles,
+            ...prevTiles
+          ]);
         }
       };
       reader.readAsDataURL(file);
     }
   };
+
   
   
   const rgbToHex = (rgb) => {
@@ -404,6 +392,7 @@ const IndexPage = () => {
                   hasUnsavedChanges={tile.hasUnsavedChanges}
                   user={user}
                   artistId={tile.artistId}
+                  existingId={tile.id}
                 />
               ))}
             </div>
