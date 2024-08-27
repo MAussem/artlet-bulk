@@ -95,6 +95,14 @@ const IndexPage = () => {
         topProfiles: image.top_profiles || [],
         artistId: image.artist_id
       }));
+
+      // Sort the userImages by file name (assuming the file name contains the timestamp)
+    userImages.sort((a, b) => {
+      const fileNameA = a.imageUrl.split('/').pop(); // Extract file name from URL
+      const fileNameB = b.imageUrl.split('/').pop();
+      return fileNameB.localeCompare(fileNameA); // Sort descending (newest first)
+    });
+    
       setImageTiles(userImages);
     } catch (error) {
       console.error('Error fetching user images:', error.message);

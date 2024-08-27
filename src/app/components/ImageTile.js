@@ -55,6 +55,7 @@ const ImageTile = ({
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [errors, setErrors] = useState({ title: "", storeUrl: "" });
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const isTitleEmpty = title.trim() === "";
   const isStoreUrlEmpty = storeUrl.trim() === "";
@@ -176,6 +177,8 @@ const ImageTile = ({
     setUnsavedChanges(true);
   };
   const handleImageUpload = async () => {
+    setLoading(true);
+
     console.log("Tile being uploaded:", {
       title,
       storeUrl,
@@ -189,11 +192,13 @@ const ImageTile = ({
     });
   
     if (!validateFields()) {
+      setLoading(false);
       return; // Stop the upload process if validation fails
     }
   
     if (!imageUrl) {
-      console.error("No image URL provided for upload");
+      // console.error("No image URL provided for upload");
+      setLoading(false);
       return;
     }
   
@@ -385,6 +390,8 @@ const ImageTile = ({
       setUnsavedChanges(false);
     } catch (error) {
       console.error("Error uploading image:", error.message || error);
+    } finally {
+      setLoading(false); // Reset the loading state after the upload is complete
     }
   };
   
@@ -503,7 +510,7 @@ const ImageTile = ({
           disabled={!title.trim() || !storeUrl.trim()} // Use trim() to ignore whitespace
           className="upload-button"
         >
-          Save
+           {loading ? "Saving..." : "Save"}
         </button>
       )}
       <div className="dominant-colors">
