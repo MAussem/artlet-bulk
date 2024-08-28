@@ -13,7 +13,6 @@ const IndexPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
-  const [artistId, setArtistId] = useState(null); // added this state to store the artist ID for the selected image
   const [tags, setTags] = useState([]);
   const [groups, setGroups] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -93,7 +92,8 @@ const IndexPage = () => {
         profileViews: image.profile_views || 0,
         follows: image.follows || 0,
         topProfiles: image.top_profiles || [],
-        artistId: image.artist_id
+        artistId: image.artist_id,
+        groupId: image.artist_group?.id || null,
       }));
 
       // Sort the userImages by file name (assuming the file name contains the timestamp)
@@ -102,7 +102,7 @@ const IndexPage = () => {
       const fileNameB = b.imageUrl.split('/').pop();
       return fileNameB.localeCompare(fileNameA); // Sort descending (newest first)
     });
-    
+
       setImageTiles(userImages);
     } catch (error) {
       console.error('Error fetching user images:', error.message);
@@ -126,9 +126,9 @@ const IndexPage = () => {
   const fetchGroups = async () => {
     try {
       const { data: groups, error } = await supabase
-        .from('artist_group')
-        .select('group_name')
-        .eq('user_id', user.id);
+        .from('artist_work_group')
+        .select('group_name, artist_work_id')
+        .eq('artist_id', user.id);
       if (error) {
         throw error;
       }
@@ -181,87 +181,11 @@ const IndexPage = () => {
       reader.readAsDataURL(file);
     }
   };
-
-  
   
   const rgbToHex = (rgb) => {
     const [r, g, b] = rgb;
     return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
   };
-
-//   const handleUpload = async () => {
-//   setUploading(true);
-//   for (const tile of imageTiles) {
-//     if (tile.file) { // Check if tile has a file to upload
-//       const filePath = `gallery/${tile.file.name}`; // Adjust path to include folder
-
-//       try {
-//         const { data, error } = await supabase.storage.from('content').upload(filePath, tile.file);
-//         if (error) {
-//           console.error('Error uploading image:', error.message);
-//           continue;
-//         }
-
-//         console.log('Image uploaded successfully:', data.Key);
-//         const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/content/${filePath}`;
-        
-//         // Extract dominant colors
-//         const img = new Image();
-//         img.src = URL.createObjectURL(tile.file);
-//         img.onload = () => {
-//           setTimeout(() => {
-//             try {
-//               const colorThief = new ColorThief();
-//               const colors = colorThief.getPalette(img, 6).map(rgbToHex);
-
-//               // Save image details to the database
-//               saveImageDetails({
-//                 imageUrl,
-//                 title: tile.title || '',
-//                 storeUrl: tile.storeUrl || '',
-//                 dominantColors: colors
-//               });
-//             } catch (colorThiefError) {
-//               console.error('Error extracting colors with ColorThief:', colorThiefError);
-//             }
-//           }, 500); // Adjust delay if needed
-//         };
-//       } catch (uploadError) {
-//         console.error('Unexpected error during upload:', uploadError.message);
-//       }
-//     }
-//   }
-//   setUploading(false);
-// };
-
-// const saveImageDetails = async ({ imageUrl, title, storeUrl, dominantColors }) => {
-//   const [dc1, dc2, dc3, dc4, dc5, dc6] = Array.isArray(dominantColors) ? dominantColors : [];
-
-//   try {
-//     const { error } = await supabase
-//       .from('artist_work')
-//       .insert({
-//         image_url: imageUrl,
-//         title,
-//         work_url: storeUrl,
-//         dc1,
-//         dc2,
-//         dc3,
-//         dc4,
-//         dc5,
-//         dc6,
-//       });
-
-//     if (error) {
-//       throw error;
-//     }
-
-//     console.log('Image details saved successfully.');
-//   } catch (error) {
-//     console.error('Error saving image details:', error.message);
-//   }
-// };
-
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -396,11 +320,13 @@ const IndexPage = () => {
                   tags={tile.tags}
                   availableTags={tags}
                   groups={groups}
+                  setGroups={setGroups}
                   onUpdate={(updatedDetails) => handleImageUpdate(index, updatedDetails)}
                   hasUnsavedChanges={tile.hasUnsavedChanges}
                   user={user}
                   artistId={tile.artistId}
                   existingId={tile.id}
+                  initialGroupId={tile.groupId}
                 />
               ))}
             </div>

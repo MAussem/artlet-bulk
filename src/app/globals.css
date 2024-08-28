@@ -371,6 +371,21 @@ input:checked + .slider:before {
   border: 1px solid #ccc;
 }
 
+.remove-button {
+  position: absolute;
+  top: 1px;
+  left: 6px;
+  background-color: transparent;
+  color: red;
+  border: none;
+  font-size: 34px;
+  cursor: pointer;
+}
+
+.remove-button:hover {
+  color: darkred;
+}
+
 .menu {
   position: absolute;
   top: 10px;
@@ -383,16 +398,16 @@ input:checked + .slider:before {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  width: 24px;
-  height: 24px;
-  border: 1px solid #ccc;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #5040B0;
   border-radius: 50%;
 }
 
 .menu-dot {
   width: 4px;
   height: 4px;
-  background-color: #ccc;
+  background-color: #5040B0;
   margin: 2px 0;
   border-radius: 50%;
 }
@@ -425,8 +440,13 @@ input:checked + .slider:before {
   background-color: #333; /* Darker background on hover */
 }
 
-.menu-dropdown li.selected-group {
-  background-color: #555; /* Highlighted background color for selected item */
+.menu-icon:hover {
+  border: #5040B0; /* Darker background on hover */
+}
+
+.selected-group {
+  background-color: #5040B0; /* Or any other highlight style */
+  font-weight: bold;
 }
 
 

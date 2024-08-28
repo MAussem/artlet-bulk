@@ -1,74 +1,84 @@
-import React, { useState, useEffect } from 'react';
-import supabase from '../lib/supabase';
+import React, { useState, useEffect } from "react";
+import supabase from "../lib/supabase";
 
-const InsightsPage = ({ user, handleLogout, filteredImageTiles, paginatedImageTiles, currentPage, totalPages, handlePageChange, setCurrentView, groups, setGroups, searchQuery, setSearchQuery }) => {
+const InsightsPage = ({
+  user,
+  handleLogout,
+  filteredImageTiles,
+  paginatedImageTiles,
+  currentPage,
+  totalPages,
+  handlePageChange,
+  setCurrentView,
+  groups,
+  setGroups,
+  searchQuery,
+  setSearchQuery,
+}) => {
   const [selectedGroup, setSelectedGroup] = useState({});
-  const [newGroupName, setNewGroupName] = useState('');
   const [randomProfiles, setRandomProfiles] = useState([]);
 
   useEffect(() => {
     if (user) {
       fetchGroups();
-      fetchRandomProfiles();
+      // fetchRandomProfiles();
     }
-  }, [user]);
+  }, [user, paginatedImageTiles, groups]);
 
   const fetchGroups = async () => {
     try {
       const { data: groups, error } = await supabase
-        .from('artist_group')
-        .select('description, id')
-        .eq('user_id', user.id);
+        .from("artist_work_group")
+        .select("group_name, artist_work_id")
+        .eq("artist_id", user.id);
       if (error) {
         throw error;
       }
-      // console.log('Fetched groups:', groups);
       setGroups(groups);
     } catch (error) {
-      console.error('Error fetching groups:', error.message);
+      console.error("Error fetching groups:", error.message);
     }
   };
 
-  const fetchRandomProfiles = async () => {
-    try {
-      const { data: profiles, error } = await supabase
-        .from('profiles')
-        .select('profile_img')
-        .limit(3)
-        .order('random()');
-      if (error) {
-        throw error;
-      }
-      setRandomProfiles(profiles);
-    } catch (error) {
-      console.error('Error fetching random profiles:', error.message);
-    }
-  };
-
-  const createGroup = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('artist_group')
-        .insert([{ description: newGroupName, user_id: user.id }]);
-      if (error) {
-        console.error('Error adding group:', error.message);
-      } else {
-        console.log('Group added successfully:', data);
-        await fetchGroups();
-      }
-    } catch (error) {
-      console.error('Error adding group:', error.message);
-    }
-    setNewGroupName('');
-    setSelectedGroup({});
-  };
+  // const fetchRandomProfiles = async () => {
+  //   try {
+  //     const { data: profiles, error } = await supabase
+  //       .from("profiles")
+  //       .select("profile_img")
+  //       .limit(3)
+  //       .order("random()");
+  //     if (error) {
+  //       throw error;
+  //     }
+  //     setRandomProfiles(profiles);
+  //   } catch (error) {
+  //     console.error("Error fetching random profiles:", error.message);
+  //   }
+  // };
 
   const handleGroupChange = (event, index) => {
-    setSelectedGroup(prevState => ({
+    setSelectedGroup((prevState) => ({
       ...prevState,
       [index]: event.target.value,
     }));
   };
+
+  useEffect(() => {
+    // Set the selected group based on artist_work_id, preferring custom groups over "All"
+    const updatedSelectedGroups = {};
+    paginatedImageTiles.forEach((tile, index) => {
+      const customGroup = groups.find(
+        (group) =>
+          group.artist_work_id === tile.id && group.group_name !== "All"
+      );
+      if (customGroup) {
+        updatedSelectedGroups[index] = customGroup.group_name;
+      } else {
+        updatedSelectedGroups[index] = "Select Group";
+      }
+    });
+    setSelectedGroup(updatedSelectedGroups);
+  }, [groups, paginatedImageTiles]);
 
   return (
     <div>
@@ -79,33 +89,33 @@ const InsightsPage = ({ user, handleLogout, filteredImageTiles, paginatedImageTi
         </div>
       </header>
       <div className="search-bar">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by title"
-          />
-        </div>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by title"
+        />
+      </div>
       <div className="top-buttons">
-        <button onClick={() => setCurrentView('bulk')} className='view-btn'>
+        <button onClick={() => setCurrentView("bulk")} className="view-btn">
           Bulk Upload
         </button>
-        <button onClick={() => setCurrentView('insights')} className='view-btn'>
+        <button onClick={() => setCurrentView("insights")} className="view-btn">
           Insights
         </button>
       </div>
       <div className="pagination-controls">
-            {Array.from({ length: totalPages }, (_, index) => (
-              <button
-                key={index}
-                className={index + 1 === currentPage ? 'active' : ''}
-                onClick={() => handlePageChange(index + 1)}
-              >
-                {index + 1}
-              </button>
-            ))}
-          </div>
-      <button className='logout-btn' onClick={handleLogout}>
+        {Array.from({ length: totalPages }, (_, index) => (
+          <button
+            key={index}
+            className={index + 1 === currentPage ? "active" : ""}
+            onClick={() => handlePageChange(index + 1)}
+          >
+            {index + 1}
+          </button>
+        ))}
+      </div>
+      <button className="logout-btn" onClick={handleLogout}>
         Logout
       </button>
       <main>
@@ -116,11 +126,18 @@ const InsightsPage = ({ user, handleLogout, filteredImageTiles, paginatedImageTi
               <div key={index} className="insight-card">
                 <div className="content-row">
                   <div className="image-row">
-                    <img src={tile.imageUrl} alt={tile.title} className="insight-image" />
+                    <img
+                      src={tile.imageUrl}
+                      alt={tile.title}
+                      className="insight-image"
+                    />
                   </div>
                   <div className="insight-details">
                     <h2>{tile.title}</h2>
-                    <p>Dimensions: {tile.dimensions.height} x {tile.dimensions.width} x {tile.dimensions.depth}</p>
+                    <p>
+                      Dimensions: {tile.dimensions.height} x{" "}
+                      {tile.dimensions.width} x {tile.dimensions.depth}
+                    </p>
                     <p>Price: ${tile.price}</p>
                   </div>
                   <div className="checkbox-container">
@@ -134,26 +151,19 @@ const InsightsPage = ({ user, handleLogout, filteredImageTiles, paginatedImageTi
                     </label>
                   </div>
                   <div className="dropdown-container">
-                    <select value={selectedGroup[index] || ''} onChange={(e) => handleGroupChange(e, index)}>
+                    <select
+                      value={selectedGroup[index] || ""}
+                      onChange={(e) => handleGroupChange(e, index)}
+                    >
                       <option value="">Select Group</option>
-                      {groups.map((group) => (
-                        <option key={group.id} value={group.group_name}>
-                          {group.group_name}
-                        </option>
-                      ))}
-                      {/* <option value="create">Create New Group</option> */}
+                      {groups
+                        .filter((group) => group.group_name !== "All")
+                        .map((group) => (
+                          <option key={group.id} value={group.group_name}>
+                            {group.group_name}
+                          </option>
+                        ))}
                     </select>
-                    {selectedGroup[index] === 'create' && (
-                      <div className="new-group-container">
-                        <input
-                          type="text"
-                          value={newGroupName}
-                          onChange={(e) => setNewGroupName(e.target.value)}
-                          placeholder="New group name"
-                        />
-                        <button onClick={createGroup}>Create Group</button>
-                      </div>
-                    )}
                   </div>
                 </div>
                 <div className="stats-row">
@@ -183,7 +193,12 @@ const InsightsPage = ({ user, handleLogout, filteredImageTiles, paginatedImageTi
                     <span>555</span>
                     <span className="top-profiles">
                       {randomProfiles.map((profile, idx) => (
-                        <img key={idx} src={profile.profile_img} alt="Top Profile" className="profile-img-small" />
+                        <img
+                          key={idx}
+                          src={profile.profile_img}
+                          alt="Top Profile"
+                          className="profile-img-small"
+                        />
                       ))}
                     </span>
                   </div>
@@ -195,7 +210,7 @@ const InsightsPage = ({ user, handleLogout, filteredImageTiles, paginatedImageTi
             {Array.from({ length: totalPages }, (_, index) => (
               <button
                 key={index}
-                className={index + 1 === currentPage ? 'active' : ''}
+                className={index + 1 === currentPage ? "active" : ""}
                 onClick={() => handlePageChange(index + 1)}
               >
                 {index + 1}
