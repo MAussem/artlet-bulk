@@ -58,11 +58,17 @@ const ImageTile = ({
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [deleted, setDeleted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
 
   const isTitleEmpty = title.trim() === "";
   const isStoreUrlEmpty = storeUrl.trim() === "";
 
   const imageRef = useRef(null);
+
+  const rgbToHex = (rgb) => {
+    const [r, g, b] = rgb;
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
+  };
 
   useEffect(() => {
     // Ensure groups are loaded and the component is ready
@@ -113,16 +119,10 @@ const ImageTile = ({
           try {
             const colorThief = new ColorThief();
             const colors = colorThief.getPalette(img, 6);
-            setDominantColors(
-              colors.map(
-                (color) => `rgb(${color[0]}, ${color[1]}, ${color[2]})`
-              )
-            );
+            const hexColors = colors.map(rgbToHex);
+            setDominantColors(hexColors);
           } catch (colorThiefError) {
-            console.error(
-              "Error extracting colors with ColorThief:",
-              colorThiefError
-            );
+            console.error("Error extracting colors with ColorThief:", colorThiefError);
           }
         }, 500);
       };
@@ -220,7 +220,7 @@ const ImageTile = ({
   };
   const handleImageUpload = async () => {
     setLoading(true);
-
+  
     console.log("Tile being uploaded:", {
       title,
       storeUrl,
@@ -232,18 +232,17 @@ const ImageTile = ({
       artistId,
       existingId,
     });
-
+  
     if (!validateFields()) {
       setLoading(false);
       return; // Stop the upload process if validation fails
     }
-
+  
     if (!imageUrl) {
-      // console.error("No image URL provided for upload");
       setLoading(false);
       return;
     }
-
+  
     try {
       // Check if the id exists
       let existingRow = null;
@@ -252,16 +251,16 @@ const ImageTile = ({
           .from("artist_work")
           .select("id, image_url")
           .eq("id", existingId);
-
+  
         if (selectError) throw selectError;
         if (rows.length > 0) {
           existingRow = rows[0];
         }
       }
-
+  
       let needsNewUpload = false;
       let originalFileName = "";
-
+  
       if (!existingRow) {
         // If no existing row, we need to upload a new image
         needsNewUpload = true;
@@ -270,24 +269,24 @@ const ImageTile = ({
         // Use the existing image file name
         originalFileName = existingRow.image_url.split("/").pop();
       }
-
+  
       if (needsNewUpload) {
         // 1. Fetch the image data
         const response = await fetch(imageUrl);
         if (!response.ok)
           throw new Error(`Failed to fetch image: ${response.statusText}`);
         const imageBlob = await response.blob();
-
+  
         // 2. Create an image object and resize it to maintain aspect ratio
         const img = new Image();
         img.src = URL.createObjectURL(imageBlob);
         await new Promise((resolve) => (img.onload = resolve));
-
+  
         // Calculate the scaling factor while maintaining the aspect ratio
         const maxDimension = 1536;
         let newWidth = img.width;
         let newHeight = img.height;
-
+  
         if (img.width > maxDimension || img.height > maxDimension) {
           if (img.width > img.height) {
             newWidth = maxDimension;
@@ -297,19 +296,19 @@ const ImageTile = ({
             newWidth = (img.width / img.height) * maxDimension;
           }
         }
-
+  
         // Resize the canvas to the new dimensions
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
         canvas.width = newWidth;
         canvas.height = newHeight;
         ctx.drawImage(img, 0, 0, newWidth, newHeight);
-
+  
         // Convert the canvas to a blob for upload
         const resizedBlob = await new Promise((resolve) =>
           canvas.toBlob(resolve, "image/png")
         );
-
+  
         // 3. Upload the resized image
         const { error: originalUploadError } = await supabase.storage
           .from("content")
@@ -317,9 +316,9 @@ const ImageTile = ({
             cacheControl: "3600",
             upsert: true,
           });
-
+  
         if (originalUploadError) throw originalUploadError;
-
+  
         // 4. Resize the image to 100px width and upload
         const smallCanvas = document.createElement("canvas");
         const smallCtx = smallCanvas.getContext("2d");
@@ -328,22 +327,22 @@ const ImageTile = ({
         smallCanvas.width = smallWidth;
         smallCanvas.height = smallHeight;
         smallCtx.drawImage(img, 0, 0, smallWidth, smallHeight);
-
+  
         const smallBlob = await new Promise((resolve) =>
           smallCanvas.toBlob(resolve, "image/png")
         );
         const smallFileName = originalFileName.replace(".png", "_small.png");
-
+  
         const { error: smallUploadError } = await supabase.storage
           .from("content")
           .upload(`gallery/${smallFileName}`, smallBlob, {
             cacheControl: "3600",
             upsert: true,
           });
-
+  
         if (smallUploadError) throw smallUploadError;
       }
-
+  
       // 5. Prepare data for upsert
       const upsertData = {
         title,
@@ -357,7 +356,7 @@ const ImageTile = ({
         dc6: dominantColors[5] || null,
         artist_id: artistId,
       };
-
+  
       // Conditionally update dimensions or multiple_dimensions
       if (multipleSizes) {
         upsertData.multiple_dimensions = true;
@@ -382,22 +381,34 @@ const ImageTile = ({
           };
         }
       }
-
+  
       // Conditionally update price or multiple_prices
       if (multiplePrices) {
         upsertData.multiple_prices = true;
         upsertData.price = price || null;
-        upsertData.multiple_prices = false;
       }
-
+  
       // 6. Perform upsert operation
-      const { error: upsertError } = await supabase.from("artist_work").upsert({
-        ...upsertData,
-        id: existingRow ? existingRow.id : undefined,
-      });
-
+      const { data: upsertedRow, error: upsertError } = await supabase
+        .from("artist_work")
+        .upsert({
+          ...upsertData,
+          id: existingRow ? existingRow.id : undefined,
+        })
+        .select();
+  
       if (upsertError) throw upsertError;
-
+  
+      // Fetch the ID of the upserted row
+      const rowId = upsertedRow[0]?.id;
+  
+      // Update or set the status message based on whether it's a new or existing row
+      if (!existingId) {
+        setStatusMessage("Art Work Added"); // Show success message for new artwork
+      } else {
+        setStatusMessage("Art Work Updated"); // Show success message for updated artwork
+      }
+  
       // 7. Update tags in artist_work_tag table
       const tagEntries = Object.keys(tagSelections)
         .map((tagTypeCode) => {
@@ -405,37 +416,38 @@ const ImageTile = ({
           const tagId = availableTags.find(
             (tag) => tag.description === selectedTagDescription
           )?.id;
-
+  
           if (tagId) {
             return {
-              artist_work_id: existingRow ? existingRow.id : upsertData.id,
+              artist_work_id: rowId, // Use the correct row ID here
               tag_id: tagId,
             };
           }
           return null; // Return null if tagId is not found
         })
         .filter((entry) => entry !== null); // Filter out null entries
-
+  
       if (tagEntries.length > 0) {
         const { error: tagInsertError } = await supabase
           .from("artist_work_tag")
           .upsert(tagEntries);
-
+  
         if (tagInsertError) {
           console.error("Error inserting tags:", tagInsertError.message);
         } else {
           console.log("Tags inserted/updated successfully.");
         }
       }
-
-      alert("Image uploaded successfully!");
-      setUnsavedChanges(false);
+  
+      setUnsavedChanges(false); // Reset the unsaved changes state
     } catch (error) {
       console.error("Error uploading image:", error.message || error);
     } finally {
       setLoading(false); // Reset the loading state after the upload is complete
+      setTimeout(() => setStatusMessage(""), 3000); // Clear the status message after 3 seconds
     }
   };
+  
 
   const validateFields = () => {
     const newErrors = { title: "", storeUrl: "" };
@@ -636,12 +648,17 @@ const ImageTile = ({
       {unsavedChanges && (
         <button
           onClick={handleImageUpload}
-          disabled={!title.trim() || !storeUrl.trim()} // Use trim() to ignore whitespace
+          disabled={loading}
           className="upload-button"
         >
           {loading ? "Saving..." : "Save"}
         </button>
       )}
+            {statusMessage && (
+  <p style={{ color: "green", marginTop: "10px" }}>
+    {statusMessage}
+  </p>
+)}
       <div className="dominant-colors">
         <h3>Dominant Colours</h3>
         <div className="color-squares">
