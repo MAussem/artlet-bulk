@@ -67,21 +67,30 @@ const ImageTile = ({
 
   const rgbToHex = (rgb) => {
     const [r, g, b] = rgb;
-    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b)
+      .toString(16)
+      .slice(1)
+      .toUpperCase()}`;
   };
 
   useEffect(() => {
     // Ensure groups are loaded and the component is ready
     if (groups && groups.length > 0) {
       // Find the matching group for the current art piece
-      const matchedGroup = groups.find(group => group.artist_work_id === existingId && group.group_name !== "All");
-  
+      const matchedGroup = groups.find(
+        (group) =>
+          group.artist_work_id === existingId && group.group_name !== "All"
+      );
+
       // Set the selected group if a match is found
       if (matchedGroup) {
         setSelectedGroup(matchedGroup.artist_work_id);
       } else {
         // Fallback to the default group (All) if no custom group is found
-        const defaultGroup = groups.find(group => group.artist_work_id === existingId && group.group_name === "All");
+        const defaultGroup = groups.find(
+          (group) =>
+            group.artist_work_id === existingId && group.group_name === "All"
+        );
         if (defaultGroup) {
           setSelectedGroup(defaultGroup.artist_work_id);
         }
@@ -106,7 +115,9 @@ const ImageTile = ({
     setDominantColors(initialDominantColors || []);
 
     // Set the selected group based on artist_work_id
-    const matchedGroup = groups.find(group => group.artist_work_id === existingId);
+    const matchedGroup = groups.find(
+      (group) => group.artist_work_id === existingId
+    );
     if (matchedGroup) {
       setSelectedGroup(matchedGroup.artist_work_id);
     }
@@ -122,7 +133,10 @@ const ImageTile = ({
             const hexColors = colors.map(rgbToHex);
             setDominantColors(hexColors);
           } catch (colorThiefError) {
-            console.error("Error extracting colors with ColorThief:", colorThiefError);
+            console.error(
+              "Error extracting colors with ColorThief:",
+              colorThiefError
+            );
           }
         }, 500);
       };
@@ -149,24 +163,75 @@ const ImageTile = ({
     }
   }, [isModalOpen, imageUrl]);
 
-  const handleGroupChange = async (newGroupId) => {
+  const handleGroupChange = async (newGroupName) => {
     try {
-      // Update the artist_work_group table with the new group ID
-      const { error } = await supabase
-        .from("artist_work_group")
-        .update({ artist_work_id: newGroupId })
-        .eq("artist_work_id", existingId);
-
-      if (error) {
-        console.error("Error updating group:", error.message);
-      } else {
-        setSelectedGroup(newGroupId);
-        console.log("Group updated successfully");
+      // Ensure the group exists in the artist_group table
+      const { data: groupExists, error: groupFetchError } = await supabase
+        .from("artist_group")
+        .select("group_name")
+        .eq("group_name", newGroupName)
+        .eq("user_id", artistId) // Check against the correct user ID
+        .single();
+  
+      if (groupFetchError || !groupExists) {
+        console.error("Group does not exist or error fetching group:", groupFetchError?.message);
+        return;
       }
+  
+      // Check if the artist work is already associated with the selected group
+      const { data: existingAssociation, error: fetchError } = await supabase
+        .from("artist_work_group")
+        .select("artist_work_id")
+        .eq("artist_work_id", existingId)
+        .eq("group_name", newGroupName)
+        .eq("artist_id", artistId)
+        .single();
+  
+      if (fetchError && fetchError.code !== "PGRST116") {
+        // If there's an error other than "no rows found", throw it
+        throw fetchError;
+      }
+  
+      if (existingAssociation) {
+        // If an association exists, remove it (i.e., remove the art from the group)
+        const { error: deleteError } = await supabase
+          .from("artist_work_group")
+          .delete()
+          .eq("artist_work_id", existingId)
+          .eq("group_name", newGroupName)
+          .eq("artist_id", artistId);
+  
+        if (deleteError) {
+          console.error("Error removing art from group:", deleteError.message);
+        } else {
+          console.log("Art removed from group successfully");
+        }
+      } else {
+        // If no association exists, add the art to the new group
+        const { error: insertError } = await supabase
+          .from("artist_work_group")
+          .insert({
+            artist_work_id: existingId,
+            group_name: newGroupName,
+            artist_id: artistId,
+          });
+  
+        if (insertError) {
+          console.error("Error adding art to group:", insertError.message);
+        } else {
+          console.log("Art added to group successfully");
+        }
+      }
+  
+      // Update the UI to reflect the current group association
+      setSelectedGroup(newGroupName);
     } catch (error) {
-      console.error("Error updating group:", error.message);
+      console.error("Error handling group change:", error.message);
     }
   };
+  
+  
+  
 
   const handleTitleChange = (event) => {
     setTitle(event.target.value);
@@ -401,9 +466,9 @@ const ImageTile = ({
   
       // Fetch the ID of the upserted row
       const rowId = upsertedRow[0]?.id;
-  
-      // Update or set the status message based on whether it's a new or existing row
-      if (!existingId) {
+
+       // Update or set the status message based on whether it's a new or existing row
+       if (!existingId) {
         setStatusMessage("Art Work Added"); // Show success message for new artwork
       } else {
         setStatusMessage("Art Work Updated"); // Show success message for updated artwork
@@ -439,6 +504,36 @@ const ImageTile = ({
         }
       }
   
+      // 8. Fetch the "All" group ID for the current user based on the user_id column
+      const { data: allGroup, error: allGroupError } = await supabase
+  .from("artist_group")
+  .select("user_id") // Fetch the 'user_id' column instead of 'id'
+  .eq("user_id", artistId) // Match user_id with the artistId
+  .eq("group_name", "All")
+  .single();
+  
+      if (allGroupError) throw allGroupError;
+  
+      // 9. Insert the artist_work_id into artist_work_group table under the "All" group
+      const { error: groupInsertError } = await supabase
+  .from("artist_work_group")
+  .upsert({
+    artist_work_id: rowId,
+    group_name: "All",
+    artist_id: artistId, // Use 'user_id' instead of 'id'
+  });
+  
+      if (groupInsertError) {
+        console.error(
+          "Error inserting into artist_work_group:",
+          groupInsertError.message
+        );
+      } else {
+        console.log(
+          "Artist work associated with the 'All' group successfully."
+        );
+      }
+  
       setUnsavedChanges(false); // Reset the unsaved changes state
     } catch (error) {
       console.error("Error uploading image:", error.message || error);
@@ -471,59 +566,63 @@ const ImageTile = ({
       alert("Group name cannot be empty.");
       return;
     }
-  
+
     try {
       // Insert the new group into the artist_group table
       const { data: newGroupData, error: groupError } = await supabase
         .from("artist_group")
-        .insert([{ 
-          user_id: user.id,  // Use the authenticated user's ID
-          group_name: newGroupName,
-          description: "Custom", // Set the description to "Custom"
-          view_order: -1 // Set the view_order to -1 for "Custom" groups
-        }])
+        .insert([
+          {
+            user_id: user.id, // Use the authenticated user's ID
+            group_name: newGroupName,
+            description: "Custom", // Set the description to "Custom"
+            view_order: -1, // Set the view_order to -1 for "Custom" groups
+          },
+        ])
         .select("*");
-  
+
       if (groupError) {
         console.error("Error adding group:", groupError.message);
         return;
       }
-  
+
       if (newGroupData && newGroupData.length > 0) {
         const newGroup = newGroupData[0];
-        
+
         // Insert into artist_work_group with the newly created group data
         const { error: workGroupError } = await supabase
           .from("artist_work_group")
-          .insert([{ 
-            artist_id: user.id,
-            group_name: newGroup.group_name,
-            artist_work_id: existingId // Use the ID of the current work item
-          }]);
-  
+          .insert([
+            {
+              artist_id: user.id,
+              group_name: newGroup.group_name,
+              artist_work_id: existingId, // Use the ID of the current work item
+            },
+          ]);
+
         if (workGroupError) {
-          console.error("Error adding group to artist_work_group:", workGroupError.message);
+          console.error(
+            "Error adding group to artist_work_group:",
+            workGroupError.message
+          );
           return;
         }
-  
+
         // Add the new group to the existing list of groups
         setGroups((prevGroups) => [...prevGroups, newGroup]);
-  
+
         // Set the newly created group as the selected group
         setSelectedGroup(newGroup.artist_work_id);
-        
+
         console.log("Group added successfully:", newGroup);
       }
-  
     } catch (error) {
       console.error("Error adding group:", error.message);
     }
-  
+
     // Clear the input field
     setNewGroupName("");
   };
-  
-  
 
   const getTagDescriptions = (tagTypeCode) => {
     if (!availableTags || availableTags.length === 0)
@@ -581,36 +680,45 @@ const ImageTile = ({
         .from("artist_work_group")
         .delete()
         .eq("artist_work_id", existingId);
-  
+
       if (groupDeleteError) {
-        console.error("Error deleting from artist_work_group:", groupDeleteError.message);
+        console.error(
+          "Error deleting from artist_work_group:",
+          groupDeleteError.message
+        );
         return;
       }
-  
+
       // Delete associated records from the artist_work_tag table (if applicable)
       const { error: tagDeleteError } = await supabase
         .from("artist_work_tag")
         .delete()
         .eq("artist_work_id", existingId);
-  
+
       if (tagDeleteError) {
-        console.error("Error deleting from artist_work_tag:", tagDeleteError.message);
+        console.error(
+          "Error deleting from artist_work_tag:",
+          tagDeleteError.message
+        );
         return;
       }
-  
+
       // Finally, delete the record from the artist_work table
       const { error: workDeleteError } = await supabase
         .from("artist_work")
         .delete()
         .eq("id", existingId);
-  
+
       if (workDeleteError) {
-        console.error("Error deleting from artist_work:", workDeleteError.message);
+        console.error(
+          "Error deleting from artist_work:",
+          workDeleteError.message
+        );
         return;
       }
 
       setDeleted(true);
-  
+
       // Optionally, remove the tile from the UI if needed
       alert("Tile and associated records deleted successfully!");
     } catch (error) {
@@ -654,11 +762,9 @@ const ImageTile = ({
           {loading ? "Saving..." : "Save"}
         </button>
       )}
-            {statusMessage && (
-  <p style={{ color: "green", marginTop: "10px" }}>
-    {statusMessage}
-  </p>
-)}
+      {statusMessage && (
+        <p style={{ color: "green", marginTop: "10px" }}>{statusMessage}</p>
+      )}
       <div className="dominant-colors">
         <h3>Dominant Colours</h3>
         <div className="color-squares">
@@ -798,8 +904,8 @@ const ImageTile = ({
                 .filter((group) => group.group_name !== "All") // Filter out the "All" group
                 .map((group) => (
                   <li
-                    key={group.artist_work_id}
-                    onClick={() => handleGroupChange(group.artist_work_id)}
+                    key={group.group_name}
+                    onClick={() => handleGroupChange(group.group_name)}
                     className={
                       selectedGroup === group.artist_work_id
                         ? "selected-group"
@@ -823,11 +929,14 @@ const ImageTile = ({
           </div>
         )}
       </div>
-      <div className="remove-btn" style={{ backgroundColor: unsavedChanges ? "#85815f" : "#333" }}>
-    <button className="remove-button" onClick={handleDeleteTile}>
-    &times;
-    </button>
-  </div>
+      <div
+        className="remove-btn"
+        style={{ backgroundColor: unsavedChanges ? "#85815f" : "#333" }}
+      >
+        <button className="remove-button" onClick={handleDeleteTile}>
+          &times;
+        </button>
+      </div>
     </div>
   );
 };

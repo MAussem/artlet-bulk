@@ -83,7 +83,7 @@ const InsightsPage = ({
   return (
     <div>
       <header>
-        <h1>Artist Insights + Management</h1>
+        <h1>Artist Insights + Management (Coming Soon)</h1>
         <div className="profile-picture">
           <img src={user.profile_img} alt="Profile" className="profile-img" />
         </div>
