@@ -431,7 +431,7 @@ input:checked + .slider:before {
 }
 
 .menu-dropdown li {
-  padding: 5px 10px;
+  padding: 7px 10px;
   cursor: pointer;
   color: #fff; /* Text color for dropdown items */
 }
@@ -444,11 +444,25 @@ input:checked + .slider:before {
   border: #5040B0; /* Darker background on hover */
 }
 
+.group-item {
+  padding: 10px;
+  cursor: pointer;
+}
+
 .selected-group {
+  background-color: yellow; /* Example selected style */
+}
+
+.default-group {
+  background-color: null; /* Default style */
+}
+
+
+.selected-group {
+  margin: 7px 0;
   background-color: #5040B0; /* Or any other highlight style */
   font-weight: bold;
 }
-
 
 .add-group {
   display: flex;
