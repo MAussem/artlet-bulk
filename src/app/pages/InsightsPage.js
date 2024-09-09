@@ -120,7 +120,7 @@ const InsightsPage = ({
       </button>
       <main>
         <section id="insightCards">
-          <h2>Artwork Insights</h2>
+          <h2>Artwork Insights (Coming Soon)</h2>
           <div id="cardsContainer">
             {paginatedImageTiles.map((tile, index) => (
               <div key={index} className="insight-card">
@@ -150,7 +150,7 @@ const InsightsPage = ({
                       <input type="checkbox" checked={tile.show} />
                     </label>
                   </div>
-                  <div className="dropdown-container">
+                  {/* <div className="dropdown-container">
                     <select
                       value={selectedGroup[index] || ""}
                       onChange={(e) => handleGroupChange(e, index)}
@@ -164,7 +164,7 @@ const InsightsPage = ({
                           </option>
                         ))}
                     </select>
-                  </div>
+                  </div> */}
                 </div>
                 <div className="stats-row">
                   <div className="stats-header">

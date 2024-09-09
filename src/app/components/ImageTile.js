@@ -922,7 +922,7 @@ const forceUpdate = () => setUpdateKey((prevKey) => prevKey + 1);
         </div>
       </div>
 
-    <div className="menu">
+    {/* <div className="menu">
         <div className="menu-icon" onClick={toggleMenu}>
             <span className="menu-dot"></span>
             <span className="menu-dot"></span>
@@ -956,7 +956,7 @@ const forceUpdate = () => setUpdateKey((prevKey) => prevKey + 1);
                 </div>
             </div>
         )}
-    </div>
+    </div> */}
 
       <div
         className="remove-btn"
