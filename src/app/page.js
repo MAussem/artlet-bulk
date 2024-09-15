@@ -195,31 +195,29 @@ const IndexPage = () => {
 
   const handleFileSelect = async (event) => {
     const files = event.target.files;
-    const newTiles = [];
-
-    console.log("Files selected:", files); // Debugging line
-
-    for (const file of files) {
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        console.log("File loaded:", e.target.result); // Debugging line
-
-        newTiles.push({
-          imageUrl: e.target.result, // The data URL of the file
-          file,
-          hasUnsavedChanges: true,
-          dominantColors: [],
-          artistId: user.id,
+    
+    const newTiles = await Promise.all(
+      Array.from(files).map((file) => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            resolve({
+              imageUrl: e.target.result, // The data URL of the file
+              file,
+              hasUnsavedChanges: true,
+              dominantColors: [],
+              artistId: user.id,
+            });
+          };
+          reader.readAsDataURL(file);
         });
-
-        // Update state once all files are processed
-        if (newTiles.length === files.length) {
-          setImageTiles((prevTiles) => [...newTiles, ...prevTiles]);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
+      })
+    );
+  
+    // Safely append new images to the existing state
+    setImageTiles((prevTiles) => [...newTiles, ...prevTiles]);
   };
+  
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -247,13 +245,22 @@ const IndexPage = () => {
 
   const handleImageUpdate = (id, updatedDetails) => {
     setImageTiles((prevTiles) => {
-      const newTiles = prevTiles.map(
-        (tile) =>
-          tile.id === id ? { ...tile, ...updatedDetails, groups } : tile // Use id to find the tile
+      return prevTiles.map((tile) =>
+        tile.id === id
+          ? {
+              ...tile,
+              title: updatedDetails.title || tile.title,
+              storeUrl: updatedDetails.storeUrl || tile.storeUrl,
+              tags: updatedDetails.tags || tile.tags,
+              dimensions: updatedDetails.dimensions || tile.dimensions,
+              price: updatedDetails.price || tile.price,
+              groups: updatedDetails.groups || tile.groups, // Explicitly update groups
+            }
+          : tile
       );
-      return newTiles;
     });
   };
+  
 
   if (!user) {
     return (
@@ -359,9 +366,7 @@ const IndexPage = () => {
                   availableTags={tags}
                   groups={tile.groups}
                   setGroups={setGroups}
-                  onUpdate={(updatedDetails) =>
-                    handleImageUpdate(index, updatedDetails)
-                  }
+                  onUpdate={(updatedDetails) => handleImageUpdate(tile.id, updatedDetails)}
                   hasUnsavedChanges={tile.hasUnsavedChanges}
                   user={user}
                   artistId={tile.artistId}
